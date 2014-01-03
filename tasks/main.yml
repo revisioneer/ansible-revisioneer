@@ -1,0 +1,7 @@
+---
+- name: track deployment
+  revisioneer:
+    path: "{{ repository_path }}"
+    api_token: "{{ revisioneer_token }}"
+    revisioneer_host: "{{ revisioneer_host }}"
+    branch: "{{ revisioneer_branch }}"

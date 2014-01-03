@@ -1,0 +1,141 @@
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
+# (c) 2014, Raphael Randschau <nicolai86@me.com>
+
+DOCUMENTATION = '''
+---
+module: revisioneer
+short_description: notify revisioneer of a deployment
+version_added: "1.0"
+options:
+  path:
+    description:
+      - path to bare git repo
+    required: no
+  branch:
+    description:
+      - branch to use for log message/ sha and commits ahead extraction
+    required: no
+    default: master
+  api_token:
+    description:
+      - revisioneer api token
+    required: yes
+  revisioneer_host:
+    description:
+      - url of revisioneer host
+    required: false
+    default: https://revisions.deployed.eu
+author: Raphael Randschau
+'''
+
+EXAMPLES = '''
+# assuming scm is a git bare clone of your project
+- revisioneer: path=scm api_token=secret_token
+'''
+
+import urllib2
+import json
+from subprocess import check_output
+
+def revisioneer_host(module):
+    if module.params['revisioneer_host']:
+        return module.params['revisioneer_host']
+    return "https://revisions.deployed.eu"
+
+def last_deploy(module):
+    if module.params.get('last_deploy', None):
+        return module.params['last_deploy']
+    req = urllib2.Request(revisioneer_host(module) + '/deployments?limit=1')
+
+    req.add_header('Content-Type', 'application/json')
+    req.add_header('API-TOKEN', module.params['api_token'])
+
+    last_deploy = {}
+    try:
+        response_body = urllib2.urlopen(req).read()
+        last_deploy = json.loads(response_body)[0]
+    except urllib2.HTTPError, error:
+        last_deploy = {}
+
+    module.params['last_deploy'] = last_deploy
+    return module.params['last_deploy']
+
+def last_deploy_date(module):
+    return last_deploy(module).get('deployed_at', None)
+
+def last_deploy_sha(module):
+    return last_deploy(module).get('sha', None)
+
+def current_sha(module):
+    return check_output(["git", "rev-parse", "--verify", module.params['branch']], cwd=module.params['path']).strip()
+
+def messages(module):
+    messages = ""
+
+    if last_deploy_sha(module):
+        messages = check_output(["git", "log", module.params['branch'], "--pretty=format:'%s'", "--abbrev-commit", last_deploy_sha(module)+".."], cwd=module.params['path'])
+    else:
+        messages = check_output(["git", "log", module.params['branch'], "--pretty=format:'%s'", "--abbrev-commit"], cwd=module.params['path'])
+
+    messages = map(lambda x: x.strip(), messages.strip().split("\n"))
+
+    # messages.select! { |line| line =~ revisioneer_inclusion } if revisioneer_inclusion
+    # messages.reject! { |line| line =~ revisioneer_exclusion } if revisioneer_exclusion
+    return filter(lambda x: x != "", messages)
+
+def commits_ahead(module):
+    messages = ""
+
+    if last_deploy_sha(module):
+        messages = check_output(["git", "log", "--oneline", module.params['branch'], last_deploy_sha(module)+".."], cwd=module.params['path'])
+    else:
+        messages = check_output(["git", "log", "--oneline", module.params['branch']], cwd=module.params['path'])
+
+    return len(filter(lambda x: x != "", messages.strip().split("\n")))
+
+def notify(module):
+    print(current_sha(module))
+    data = {
+        "sha": current_sha(module),
+        "messages": messages(module),
+        "new_commit_counter": commits_ahead(module)
+    }
+
+    req = urllib2.Request(
+        revisioneer_host(module) + "/deployments",
+        json.dumps(data).encode('utf-8'),
+        {
+            'Content-Type': 'application/json',
+            'API-TOKEN': module.params['api_token']
+        })
+
+    f = urllib2.urlopen(req)
+    # print(f.read())
+    f.close()
+
+    return True
+
+def main():
+    module = AnsibleModule(
+        argument_spec = dict(
+            path             = dict(required=True, type='str'),
+            api_token        = dict(required=True, type='str'),
+            revisioneer_host = dict(required=False, type='str'),
+            branch           = dict(required=False, type='str'),
+        ),
+        supports_check_mode = True,
+        mutually_exclusive = [ ],
+    )
+
+    changed = notify(module)
+
+    result = {}
+    result['changed'] = changed
+
+    module.exit_json(**result)
+
+# include magic from lib/ansible/module_common.py
+#<<INCLUDE_ANSIBLE_MODULE_COMMON>>
+main()

@@ -1,0 +1,6 @@
+---
+# revisioneer server endpoint.
+revisioneer_host: "https://revisions.deployed.eu"
+
+# default branch used to check for commits
+revisioneer_branch: "master"
