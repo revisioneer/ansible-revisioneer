@@ -13,5 +13,5 @@ Assuming you have a bare git clone of your applications repository:
     -
       role: nicolai86.ansible-revisioneer
 
-      path: /path/to/repo
+      repository_path: /path/to/repo/scm
       revisioneer_token: my-secret-token
