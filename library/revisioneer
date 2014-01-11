@@ -58,6 +58,8 @@ def last_deploy(module):
         last_deploy = json.loads(response_body)[0]
     except urllib2.HTTPError, error:
         last_deploy = {}
+    except IndexError, error:
+        last_deploy = {}
 
     module.params['last_deploy'] = last_deploy
     return module.params['last_deploy']
@@ -96,10 +98,16 @@ def commits_ahead(module):
     return len(filter(lambda x: x != "", messages.strip().split("\n")))
 
 def notify(module):
-    print(current_sha(module))
+    if module.check_mode:
+        return
+
+    new_messages = []
+    if module.params['extract_messages']:
+        new_messages = messages(module)
+
     data = {
         "sha": current_sha(module),
-        "messages": messages(module),
+        "messages": new_messages,
         "new_commit_counter": commits_ahead(module)
     }
 
@@ -124,6 +132,7 @@ def main():
             api_token        = dict(required=True, type='str'),
             revisioneer_host = dict(required=False, type='str'),
             branch           = dict(required=False, type='str'),
+            extract_messages = dict(required=False, type='bool'),
         ),
         supports_check_mode = True,
         mutually_exclusive = [ ],

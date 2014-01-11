@@ -5,3 +5,4 @@
     api_token: "{{ revisioneer_token }}"
     revisioneer_host: "{{ revisioneer_host }}"
     branch: "{{ revisioneer_branch }}"
+    extract_messages: "{{ extract_messages }}"

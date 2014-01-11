@@ -4,3 +4,6 @@ revisioneer_host: "https://revisions.deployed.eu"
 
 # default branch used to check for commits
 revisioneer_branch: "master"
+
+# add messages?
+extract_messages: True
