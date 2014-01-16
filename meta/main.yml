@@ -1,6 +1,7 @@
 ---
 galaxy_info:
   author: "Raphael Randschau"
+  description: "track deployments using revisioneer"
   license: MIT
   min_ansible_version: 1.4
   platforms:
